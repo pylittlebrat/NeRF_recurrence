@@ -19,7 +19,6 @@ make attempts to use pytorch to recurrence NeRF
 
 **Learn to reproduce Block-NeRF (two weeks)**
 
-9-3 NeRF net
 # NeRF——Net（pytorch）
 
 代码对网络的实现：
