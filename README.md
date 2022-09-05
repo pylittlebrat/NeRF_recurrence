@@ -14,8 +14,11 @@ make attempts to use pytorch to recurrence NeRF
  - [ ] Main
 
 **Running and implementing Mip-NeRF (one week)**
+
 **Running and implementing Semantic-NeRF (one week)**
+
 **Learn to reproduce Block-NeRF (two weeks)**
+
 9-3 NeRF net
 # NeRF——Net（pytorch）
 
