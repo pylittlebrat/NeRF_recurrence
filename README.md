@@ -1,11 +1,16 @@
 make attempts to use pytorch to recurrence NeRF
 **Implement original NeRF (10 days)**
 
- - [ ] network reproduction
- - [ ] location code
- - [ ] data loading
+ - [x] network reproduction
+ 
+ - [x] location code
+ 
+ - [x] data loading
+ 
  - [ ] ray rendering
+ 
  - [ ] Loss calculation
+ 
  - [ ] Main
 
 **Running and implementing Mip-NeRF (one week)**
