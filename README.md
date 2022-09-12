@@ -7,11 +7,11 @@ make attempts to use pytorch to recurrence NeRF
  
  - [x] data loading
  
- - [ ] ray rendering
+ - [x] ray rendering
  
- - [ ] Loss calculation
+ - [x] train
  
- - [ ] Main
+ - [x] Main
 
 **Running and implementing Mip-NeRF (one week)**
 
