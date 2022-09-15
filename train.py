@@ -10,7 +10,7 @@ import torch.nn.functional as F
 from tqdm import tqdm, trange
 
 import matplotlib.pyplot as plt
-
+from torch.utils.tensorboard import SummaryWriter
 
 sys.path.append('/home/ubuntu/workspace/NeRF_recurrence/LoadData')
 sys.path.append('/home/ubuntu/workspace/NeRF_recurrence/Net')
@@ -179,6 +179,11 @@ def create_nerf(args):
     model = NeRF(D=args.netdepth, W=args.netwidth,
                  input_ch=input_ch, output_ch=output_ch, skips=skips,
                  input_ch_views=input_ch_views, use_viewdirs=args.use_viewdirs).to(device)
+
+
+    model = nn.DataParallel(model)
+    model = model.cuda()
+
     grad_vars = list(model.parameters())
 
     model_fine = None
@@ -252,7 +257,8 @@ def train():
 
     parser = config_parser()
     args = parser.parse_args()
-
+ 
+    
     # Load data
     K = None
     if args.dataset_type == 'llff':
@@ -353,6 +359,9 @@ def train():
         with open(f, 'w') as file:
             file.write(open(args.config, 'r').read())
 
+    # TensorBoard loss
+    writer = SummaryWriter(os.path.join(basedir, expname))
+    
     # Create nerf model
     render_kwargs_train, render_kwargs_test, start, grad_vars, optimizer = create_nerf(args)
     global_step = start
@@ -544,6 +553,8 @@ def train():
     
         if i%args.i_print==0:
             tqdm.write(f"[TRAIN] Iter: {i} Loss: {loss.item()}  PSNR: {psnr.item()}")
+        writer.add_scalar('Loss', loss, i)
+        writer.add_scalar('psnr', psnr, i)
         """
             print(expname, i, psnr.numpy(), loss.numpy(), global_step.numpy())
             print('iter time {:.05f}'.format(dt))
