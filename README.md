@@ -13,7 +13,7 @@ make attempts to use pytorch to recurrence NeRF
  
  - [x] Main
 
-**Running and implementing Mip-NeRF (one week)**
+**Running and implementing NeRF_pl（3 days)**
 
 **Running and implementing Semantic-NeRF (one week)**
 
