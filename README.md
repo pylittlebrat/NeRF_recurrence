@@ -36,6 +36,7 @@ forward中：
 ![在这里插入图片描述](https://img-blog.csdnimg.cn/285e1c0755d64dc5b88d26346dee4f64.png)
 
 9-4~9-12 NeRF Algorithm Context Arrangement
+代码：[https://github.com/pylittlebrat/NeRF_recurrence](https://github.com/pylittlebrat/NeRF_recurrence)
 # run_nerf_helpers.py
 ## class Embedder
 > Positional encoding(section 5.1)
@@ -186,3 +187,92 @@ rgb_map = torch.sum(weights[...,None] * rgb, -2)  # [N_rays, 3]
 ## train
 
 ![在这里插入图片描述](https://img-blog.csdnimg.cn/c2973cb00e684aa8b7de1a10917c5708.png)
+# Debug 笔记
+# 以fern数据集为例
+## Load data
+`images` :{ndarray:(20,378,504,3)（N,H,W,ch）}  
+`poses`:{ndarray:(20,3,4)}{[图片数量] ,[相机姿势],[高, 宽, focal,length] }
+`bds`:{ndarray:(20,2)}  用于定义场景范围
+`render_poses`:{ndarray:(120,3,5)}  
+` i_test`:12
+`hwf`:{ndarray:(3,)}  
+
+
+
+## Create nerf model
+`optimizer` = Adam 
+`grad_vars`:{list:48}  
+`render_kwargs_train`（`render_kwargs_test` ）:   {
+	        'network_query_fn' : network_query_fn,
+	        'perturb' : args.perturb,
+	        'N_importance' : args.N_importance,
+	        'network_fine' : model_fine,
+	        'N_samples' : args.N_samples,
+	        'network_fn' : model,
+	        'use_viewdirs' : args.use_viewdirs,
+	        'white_bkgd' : args.white_bkgd,
+	        'raw_noise_std' : args.raw_noise_std,
+    }
+>     render_kwargs_test = {k : render_kwargs_train[k] for k in render_kwargs_train}
+>     render_kwargs_test['perturb'] = False
+>     render_kwargs_test['raw_noise_std'] = 0.
+
+
+## Prepare raybatch tensor if batching random rays
+`get_rays_np`函数：生成图片每个pixel对应的ray，并转化为世界坐标系下的origin和diretion
+
+```python
+rays = [get_rays_np(H, W, focal, p) for p in poses[:, :3, :4]]
+```
+`rays` :{ndarray:(20,2,378,504,3)}  {N,[原点，方向向量],W,H,3}  
+`rays_rgb`:{ndarray:(3238704,3,3)(N* H* W,[原点,方向向量,RGB},3)}  
+
+## rays marching
+```python
+    i, j = np.meshgrid(np.arange(W, dtype=np.float32), np.arange(H, dtype=np.float32), indexing='xy')
+```
+`i`:{ndarray:(378,504)}  
+`j`:{ndarray:(378,504)}  
+
+```python
+dirs = np.stack([(i-K[0][2])/K[0][0], -(j-K[1][2])/K[1][1], -np.ones_like(i)], -1)
+```
+> K = np.array([
+>            [focal, 0, 0.5*W],
+>            [0, focal, 0.5*H],
+>            [0, 0, 1]
+>            # 利用相机内参 K 计算每个像素坐标相对于光心的单位方向
+>            
+`dirs`:{ndarray:(378,504,3)}  {计算得到相机坐标系下，穿过像素中心的ray}
+
+
+
+
+```python
+    # Rotate ray directions from camera frame to the world frame
+    rays_d = np.sum(dirs[..., np.newaxis, :] * c2w[:3,:3], -1)  # dot product, equals to: [c2w.dot(dir) for dir in dirs]
+```
+![在这里插入图片描述](https://img-blog.csdnimg.cn/b451ede2e35343c29e2948bc40b76626.jpeg)
+
+如图，空间中一点 P 经过光心 O （小孔）在成像平面上呈一点 P’ ，并且呈一个倒立的像。我们以光心所在的面建立相机坐标系，那么光心所在的位置可以表示为$(\frac{W}{2} ,\frac{H}{2}, 0)$，成像点 P’ 的位置可以表示为 $(i,j,−f)$。由此两点位置，我们可以确定一个方向向量$\overrightarrow{OP'} = (i - \frac{W}{2}, j - \frac{H}{2}, -f )$ 。由于小孔成像呈一个倒立的像，因此我们对 $\overrightarrow{OP'}$ 的 Y 轴坐标取反，并对 $\overrightarrow{OP'}$的 Z 轴归一化。我们得到一个新的方向向量：$((i - \frac{W}{2})/f, -(j - \frac{H}{2})/f, -1)$。
+由此公式我们得到每个像素点关于光心 O 的方向 dirs 。随后我们利用相机外参转置矩阵将相机坐标转换为世界坐标。
+`rays_d`:{ndarray:(378,504,3)}  {世界坐标系下的方向向量}
+
+> dirs[..., np.newaxis, :] 增加一维,将最后两维度广播到3*3，与c2w相乘。
+
+```python
+    # Translate camera frame's origin to the world frame. It is the origin of all rays.
+    rays_o = np.broadcast_to(c2w[:3,-1], np.shape(rays_d))
+```
+`rays_o`:{ndarray:(378,504,3)}  
+## Train
+`use_batching`:True
+`batch`:{tensor:(3,1024,3)}  
+`batch_rays`:{tensor:(2,1024,3)}  
+`i_train`:{ndarray:(17,)}  
+`i_test`:{ndarray:(3,)}  
+
+`rgb`:{tensor:(1024,3)}  
+` disp`:{tensor:(1024,)}  
+` acc`:{tensor:(1024,)}  
+` extras`:{dict: 5 }{'raw': , 'rgb0': , 'disp0': , 'acc0':, 'z_std': )}
